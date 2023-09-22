@@ -1,0 +1,473 @@
+---
+title: "[ditt kandidatnummer]sok_2008_h23_utf1"
+format: html
+editor: visual
+---
+
+## Setup and Importing
+
+```{r,message=FALSE, warning=FALSE}
+rm(list = ls())
+library(tidyverse)
+library(httr)
+library(rjstat)
+library(lubridate)
+library(eurostat)
+library(econocharts)
+
+
+hod_theme_colours <- c("#ffa822","#1ac0c6","#ff6150","#30B66A","#B06AFF","#FF21E1")
+
+hod_theme <- function(alter_x_axis_colour = FALSE,
+                      ledgend_pos = "right",
+                      blank_axis = FALSE) {
+  
+  colour_text <- "#b8aba7"
+  colour_text_light <- "#FFE9E3"
+  colour_box <- "#2b2b2b"
+  colour_lines <- "#827974"
+  colour_main <- "#E9D5DA"
+  colour_background <- "#2b2b2b"
+  colour_palette_standard <- hod_theme_colours
+  colour_text_x_axis <- colour_text
+  
+  if(alter_x_axis_colour){
+     colour_text_x_axis <- c(colour_text,colour_text_light)
+  }
+  
+  y_ele = element_text(colour = colour_text, face = "italic", family = "mono")
+  x_ele = element_text(colour = colour_text_x_axis, face = "italic", family = "mono")
+  
+  if(blank_axis){
+    y_ele = element_blank()
+    x_ele = element_blank()
+  }
+    
+  theme(
+    # Border and margin
+    plot.margin = margin(0.4, 0.6, 0.4, 0.4, "cm"),
+    panel.border = element_rect(colour = colour_box, fill = NA, linetype = 2),
+    
+    # background
+    panel.background = element_rect(fill = colour_background),
+    plot.background = element_rect(fill = colour_background),
+    strip.background = element_rect(fill = colour_background),
+    
+    rect = element_rect(fill = colour_background, colour = "white",
+                        size = 0.5, linetype = 1),
+    
+    # grid
+    panel.grid.major.x = element_line(colour = colour_lines, linetype = 5, size = 0.25),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y =  element_line(colour = colour_lines, linetype = 5, size = 0.25),
+    panel.grid.minor.y = element_blank(),
+    axis.ticks = element_line(colour = colour_text),
+    
+    # line
+    line = element_line(colour = colour_palette_standard),
+    
+    # text
+    text = element_text(colour = colour_text, face = "italic", family = "mono"),
+    plot.title = element_text(colour = colour_text_light, face = "bold", family = "mono"),
+    plot.subtitle = element_text(colour = colour_text, family = "mono", hjust = 0.01),
+    plot.caption = element_text(colour = colour_text, face = "italic", family = "mono"),
+    axis.text.y = y_ele,
+    axis.text.x = x_ele,
+    axis.title = element_text(colour = colour_text_light, family = "mono"),
+    plot.tag = element_text(colour = colour_text, face = "italic", family = "mono"),
+    legend.text = element_text(color = colour_text,face = "italic", family = "mono"),
+    legend.title = element_text(colour = colour_text, face = "italic", family = "mono"),
+    strip.text = element_text(colour = colour_text_light, face = "bold", family = "mono"),
+    
+    # legend
+    legend.position = ledgend_pos,
+    legend.key = element_rect(fill = colour_background)
+    
+  )
+}
+```
+
+### Data from SSB(04544) work hours
+
+```{r}
+# Data sett - work
+
+URL = c("https://data.ssb.no/api/v0/no/table/04544/")
+
+query <- '{
+  "query": [
+    {
+      "code": "Kjonn",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "0",
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "code": "Yrkesstatus",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "00",
+          "01",
+          "02",
+          "03"
+        ]
+      }
+    }
+  ],
+  "response": {
+    "format": "json-stat2"
+  }
+}'
+
+response <- POST(URL, body = query, encode = "json")
+
+# Convert the response to a df
+df_raw <- response %>%
+  content("text") %>%
+  fromJSONstat() %>%
+  as_tibble()
+
+#head(df_raw)
+```
+
+### permisjon data child
+
+```{r}
+# Data sett - child permisjon
+
+df_permisjon_data_raw = read.csv("https://raw.githubusercontent.com/uit-sok-2008-h23/uit-sok-2008-h23.github.io/main/assets/women.csv",header=TRUE, sep = ";" )
+
+head(df_permisjon_data_raw)
+```
+
+### Eurostat data
+
+```{r}
+# Data sett - Eurostat
+df_eurostat <- get_eurostat("hlth_sha11_hf")
+
+head(df_eurostat)
+```
+
+### eurostat Clean
+
+```{r}
+# Filter rows for the year 2019
+df_eurostat_2019 <- df_eurostat %>% 
+  filter(year(date(time)) == 2019,
+         unit %in% c("PC_CHE","PPS_HAB"),
+         icha11_hf %in% c("HF3","HF1")) %>% 
+  select(-time)
+
+# full country names
+country_dic <- get_eurostat_dic("geo") %>% as_tibble()
+
+#names(df_eurostat_2019)
+#names(country_dic)
+
+# Merge the df
+df_eurostat_2019_full_names <- df_eurostat_2019 %>%
+  left_join(country_dic, by = c("geo" = "code_name"))
+
+
+df_eurostat_2019_full_names <- na.omit(df_eurostat_2019_full_names %>% 
+  pivot_wider(names_from = c(unit,icha11_hf),
+              values_from = values) %>% 
+    select(-PC_CHE_HF1) %>% 
+    select(-PPS_HAB_HF3))
+
+# Add a column that conditionally selects between full name and code based on string length
+df_eurostat_2019_full_names <- df_eurostat_2019_full_names %>% 
+  mutate(country = ifelse(nchar(full_name) > 20, geo, full_name)) %>%
+  select(-geo) %>%
+  select(-full_name)
+
+
+head(df_eurostat_2019_full_names)
+```
+
+## Utfordring 1.1:
+
+### a)
+
+Statistisk Sentral Byrå (SSB) har data (tabell 04544) som viser gjennomsnittlig antall arbeidstimer blant menn og kvinner i Norge. Bruk disse dataene for å vise empiriske kjønnsforskjeller i valg av arbeidstimer for menn og kvinner. Forklar dine empiriske observasjoner ved bruk av økonomisk teori. Din forklaring skal inneholde grafisk illustrasjon av teorien. NB: i denne oppgaven skal du fokusere på forskjeller mellom menn og kvinner.
+
+### **Work Hours Over the Years**
+
+```{r fig.asp = 0.5, fig.height=1, fig.width=10}
+# Graph - old taken from last year
+y_label = "Percent change"
+x_label = "Year (1996-2021)"
+title_label = "Timeverksproduktivitet, markedsrettede fastlandsnæringer"
+subtitle_label = "Line = Average change from 96-05, 05-13, and 06-21"
+caption_label = "Source: accessed 11/22, (https://www.ssb.no/statbank/table/09174)"
+#Note to self for later use, dobble check if this was the right way to add sources
+
+# above is old code, but reuse it late
+# that meens I need to remember to fix the code to preferd format !!!!!!!
+
+df_raw %>%
+  filter(statistikkvariabel == "Faktisk arbeidstid (timer per uke)",
+         yrkesstatus == "I alt",
+         kjønn != "Begge kjønn") %>%
+  ggplot(aes(x = år, y = value, color = kjønn, group = kjønn)) +
+  geom_line() +
+  labs(title = "Faktisk arbeidstid in 1996:2022 by Gender",
+       x = "Year", 
+       y = "Value") +
+  hod_theme(alter_x_axis_colour=TRUE)
+
+```
+
+**Empirical Observations:**
+
+The line graph reveals distinct trends in average work hours for men and women between 1996 and 2022. Men's average work hours have notably declined from approximately 39.5 to 36.1, while women have experienced a slight increase, from 30.1% to 31%.
+
+### **Current Year vs. 1996 Data**
+
+```{r fig.asp = 0.5, fig.height=1, fig.width=8}
+df_raw %>%
+  filter(statistikkvariabel == "Faktisk arbeidstid (timer per uke)", 
+         år %in% c(1996, 2022),
+         kjønn != "Begge kjønn") %>%
+  ggplot(aes(x = kjønn, y = value, fill = yrkesstatus)) +
+  geom_bar(stat="identity", position="dodge") +
+  labs(title = "Faktisk arbeidstid by Gender and Yrkesstatus",
+       x = "Gender", y = "Value") +
+  facet_wrap(~år, scales = "free_x")+
+  hod_theme()
+```
+
+**Empirical Observations:**
+
+Comparing data from 2022 and 1996 highlights the enduring, yet narrowing, gender disparity in work hours. The largest disparity in actual work hours between both genders exists among the "selvstendige" (self-employed). Interestingly, women outpace men by a few percent in the category of "Familiearbeidere" (family workers).
+
+### **Interpretations**
+
+These trends could be created by multiple factors, ranging from labor market conditions to personal choices and cultural influences, contribute to these observed trends. The decline in men's work hours from 39.5 to 36.1 suggests shifts in either personal priorities, government policies, or both. Conversely, the modest increase in women's work hours might reflect their efforts to advance in their careers, possibly fueled by societal movements towards gender equality.
+
+These variations indicate that men and women value leisure and consumption differently, thereby maximizing their utility under different different constraints and preferences. \
+\
+The Human Capital Theory proposes that investment in skills and education impacts such choices. Women's increasing work hours could be a result of greater investment in their human capital, which is also likely to place a higher value on their leisure time due to potentially higher salaries in skill-intensive jobs.
+
+Furthermore, behavioral tendencies seen more when studing pshycology could play a role. Men are often more assertive, and may be more likely to request overtime or extra work, thus increasing their chances of being offered additional hours later. On the other hand, if women place a higher value on leisure, they may decline such opportunities, which would subsequently reduce their chances of being asked later.
+
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+### b)
+
+Dette datasettet inneholder informasjon om generøsiteten av foreldrepermisjonsordninger og mødres yrkesdeltakelse i 24 OECD land i 2021. For å gjøre ulike lands rettigheter sammenlignbare presenteres permisjonsordningenes gunstighet ved hjelp av «full rate equivalent» (tot_full_rate = uker med 100% støtte), hvilket tilsvarer foreldrepermisjonens varighet i uker multiplisert med utbetalingssats i prosent av gjennomsnittlig inntekt. Bruk datasettet til å lage to diagrammer som viser sammenhengen mellom lengde på betalt foreldrepermisjon og yrkesdeltakelse blant kvinner. I det ene diagrammet skal du bruke data som beskriver sysselsetting blant kvinner med barn i alderen 0-2 år (fem_emp_rate_0_2), og det andre skal du bruke data på kvinner med barn i alderen 6-14 år (fem_emp_rate_6_14). Diskuter, basert på disse diagrammene og økonomisk teori, følgende påstand: «Gunstige permisjonsordninger ved fødsel sikrer høy yrkesdeltakelse blant kvinner på lang sikt».
+
+```{r fig.asp = 0.7, fig.height=1, fig.width=8}
+df_permisjon_data_raw %>%
+  ggplot(aes(x = tot_full_rate, y = fem_emp_rate_0_2)) +
+  geom_point(aes(color = country), size = 3, alpha=0.8) +
+  labs(title = "Parental Leave vs. Employment (0-2 years age group)",
+       x = "Total Full Rate of Parental Leave",
+       y = "Female Employment Rate (0-2 years age group)") +
+  hod_theme() +
+  geom_smooth(method = "lm", se = FALSE, col = "white")
+```
+
+### Parental Leave vs. Employment (0-2 years age group)
+
+The scatter plot of tot_full_rate against fem_emp_rate_0_2 reveals a nuanced landscape. Notably, Estonia, with the highest rate of parental leave, shows one of the lowest rates of female employment (around 27%). In contrast, the United States, lacking any formal paid parental leave, shows a female employment rate close to 60%. Countries with less than 50 days of parental leave generally have female employment rates ab
+
+```{r fig.asp = 0.7, fig.height=1, fig.width=8}
+df_permisjon_data_raw %>%
+  ggplot(aes(x = tot_full_rate, y = fem_emp_rate_6_14)) +
+  geom_point(aes(color = country), size = 3, alpha=0.8) +
+  labs(title = "Parental Leave vs. Employment (6-14 years age group)",
+       x = "Total Full Rate of Parental Leave",
+       y = "Female Employment Rate (6-14 years age group)") +
+  hod_theme() +
+  geom_smooth(method = "lm", se = FALSE, col = "white")
+
+```
+
+### Parental Leave vs. Employment (6-14 years age group)
+
+In the second scatter plot that correlates tot_full_rate with fem_emp_rate_6_14 reveals a marked shift as children grow older. Estonia's female employment rate soars from 27% to 86%. Meanwhile, the United States, starting at approximately 60% for mothers of children aged 0-2, inches over the 70% mark for those with kids aged 6-14. In general, countries with liberal parental leave policies tend to experience a significant uptick in female employment as children age.
+
+### **Economic Interpretations and Implications**
+
+Raising a child comes with costs, which usually manifest as either decreased income or less available time for parents. With a generous parental leave system in place, women may prioritize the well-being derived from childcare over immediate labor force participation. This behavioral adjustment can be well-explained by the labor-leisure choice model, which describes how individuals allocate their time between labor and other activities to maximize utility.
+
+Moreover, the data aligns with the human capital theory. The increase in female employment rates as children age may signal an opportunity for mothers to invest in skill development and further education. This investment could lead to higher-paying or more personally fulfilling job opportunities.
+
+But as wee has seen in the data, there are some variation in the data that can com from everything from cultural factors to regulations like job retention. But the trend in general shows that there are a positive effect in longer parental leave.\
+\
+So the trend supports the idea that "Gunstige permisjonsordninger ved fødsel sikrer høy yrkesdeltakelse blant kvinner på lang sikt"
+
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+### c)
+
+### The Importance of High Female Labor Force Participation and High Fertility Rates for the Economic Sustainability of the Norwegian Welfare Model
+
+Increasing female participation in the workforce has a direct impact on the sustainability of Norway's welfare model. A more robust female presence in the labor market expands the tax base, providing the government with additional revenue to fund essential welfare services.
+
+Conversely, a fertility rate below two children per couple could lead to a shrinking population over time. Such a demographic shift would intensify the burden on the welfare system, as fewer workers would be available to support a growing elderly population.
+
+Promoting active labor force participation among women can mitigate these challenges. By maintaining a high level of female employment, the working population grows, thereby easing the pressure on welfare provisions. Policy measures, such as generous parental leave, play a critical role in facilitating the re-entry of women into the workforce post-childbirth.
+
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+## Utfordring 1.2
+
+```{r fig.asp = 0.7, fig.height=1, fig.width=8}
+df_eurostat_2019_full_names %>%
+  ggplot(aes(x = PC_CHE_HF3, y = PPS_HAB_HF1)) +
+  geom_point(aes(color = country), size = 3, alpha=0.8) +
+  labs(title = "Out-of-pocket vs healthcare consumption",
+       x = "Household out-of-pocket payment as a percent of total CHE",
+       y = "healthcare consumption per inhabitant (PPS)") +
+  hod_theme() +
+  geom_smooth(method = "lm", se = FALSE, col = "white")
+```
+
+Empirical Observations:
+
+Here we can see a scatter graph on the relationship between out-of-pocket health care payments and per capita healthcare consumption per inhabitant. The data compellingly suggests that an increase in the proportion of out-of-pocket payments correlates with a decrease in per capita healthcare spending. For instance, Norway, with an out-of-pocket rate of around 15%, enjoys one of the highest levels of healthcare consumption per inhabitant. Contrast this with Bulgaria, where a much higher out-of-pocket rate of 37.8% coincides with the lowest healthcare consumption per inhabitant.
+
+```{r fig.asp = 0.6, fig.height=1, fig.width=8}
+
+# Function to generate the supply and demand plot - rewriten(ds to healthCv1)
+plot_market <- function(initial_price, percent_change) {
+  # Calculate the new price based on percentage change
+  new_price <- initial_price + (initial_price * percent_change / 100)
+  
+  # demand Curves
+  # demand
+  demand_data <- data.frame(
+    quantity = seq(0, 100, by = 1)
+  )
+  demand_data$price = 100 - demand_data$quantity
+  
+  #supply curves
+  #supply
+  supply_data_1 <- data.frame(
+    price = rep(initial_price, 101),
+    quantity = seq(0, 100, by = 1)
+  )
+  
+  #supply
+  supply_data_2 <- data.frame(
+    price = rep(new_price, 101),
+    quantity = seq(0, 100, by = 1)
+  )
+  
+  # Calculate equilibrium quantities
+  equilibrium_quantity_1 = 100 - initial_price
+  equilibrium_quantity_2 = 100 - new_price
+  
+  # plot
+  ggplot() +
+    geom_line(data = demand_data, 
+              aes(x = quantity, 
+                  y = price), 
+              color = hod_theme_colours[1], 
+              size = 1, 
+              alpha = 0.7) +
+    geom_line(data = supply_data_1, 
+              aes(x = quantity, 
+                  y = price), 
+              color = hod_theme_colours[2], 
+              size = 1, 
+              alpha = 0.7) +
+    geom_line(data = supply_data_2, 
+              aes(x = quantity, y = price), 
+              color = hod_theme_colours[3], 
+              size = 1, 
+              alpha = 0.7) +
+    geom_segment(aes(x = equilibrium_quantity_1, 
+                     y = 0, xend = equilibrium_quantity_1, 
+                     yend = initial_price), 
+                 color = 'white', 
+                 linetype = 'dashed') +
+
+    geom_segment(aes(x = equilibrium_quantity_2, 
+                     y = 0, 
+                     xend = equilibrium_quantity_2, 
+                     yend = initial_price), 
+                 color = 'white', 
+                 linetype = 'dashed') +
+    annotate("text", 
+             x = equilibrium_quantity_1 - 5, 
+             y = 25, 
+             label = "cost",
+             color = 'white') +
+    annotate("text", 
+             x = equilibrium_quantity_2 + 5, 
+             y = 35, 
+             label = "Dead zone", 
+             color = 'white',
+             hjust = 1.7) +
+    annotate("text", 
+             x = 0, 
+             y = 100, 
+             label = "Demand", 
+             hjust = 0, 
+             color = hod_theme_colours[1]) +
+    annotate("text", 
+             x = 100, 
+             y = initial_price, 
+             label = "P_0", 
+             hjust = 1, 
+             vjust = 2, 
+             color = hod_theme_colours[2]) +
+    annotate("text", 
+             x = 100, 
+             y = new_price, 
+             label = "P_1 Out-Of_pocket (15%)", 
+             hjust = 1.8, 
+             vjust = -2, 
+             color = hod_theme_colours[3]) +
+    labs(
+      title = "Health Care Market",
+      x = "Quantity of Health Care",
+      y = "Price"
+    ) +
+    hod_theme(blank_axis=TRUE)
+}
+
+# Initial price
+initial_price <- 50
+
+# Percent change
+percent_change <- -(100-15)
+
+
+plot_market(initial_price, percent_change)
+
+```
+
+Here we have a model where we use 'Price per Unit' for the y-axis and 'Quantity of Health Care' for the x-axis. Two horizontal lines define the landscape: one representing the supply level ($P_0$​), and the other indicating a 15% out-of-pocket payment. The demand is portrayed by a downward-sloping line.
+
+A usefull feature here is the "dead zone," which lies under the $P_0$​ line but above the demand curve. This area represents a system inefficiency, a zone where the marginal utility of health services is outweighed by the marginal cost.
+
+To compere this with our scatter plot. The decrease in healthcare consumption observed in the scatter graph could be an outcome of the inefficiencies highlighted by the supply and demand model. basically, as the burden of out-of-pocket expenses rises, individuals may steer clear of services within this "dead zone," thereby reducing overall healthcare consumption.
+
+### Diskuter fordelingseffekter av økte egenandeler.
+
+There are some consequences that can come from increasing or lowering the co-payments for healthcare services, as we just went over there is the fact that fewer people will search out medical help when needed if the co-payment is to large, putting people out of the labor force and becoming a liability for the state or community. There are also the fact that policy shift mights disproportionately impact various socio-economic groups.\
+\
+Increased copayments may serve as a significant barrier for low-income individuals, affecting their ability to access essential healthcare services. This is particularly concerning when the increased copayments deter them from seeking preventive care, possibly leading to more severe health issues down the line.
+
+So some demographic often requires frequent medical attention. Increased copayments could either make healthcare unaffordable for them or force them to prioritize healthcare over other essential needs.
+
+There is also the fact that increaseing copayments, could lead to a shift in how resources are used within the healthcare system. For instance, there might be less focus on preventive care and more on acute care services, as people are only coming in for more acute reasons, which are generally more expensive as well.
+
+One intended effect of copayments is to discourage overuse of healthcare services. Which can allow for better managements of resources.\
+\
+There are also the financial stress from higher out-of-pocket costs to consider. Hige cost can have mental health implications, affecting overall well-being and potentially leading to further health complications. Which leads to more or equal resource usage.
+
+So a certen amount of out-of-pocket health care payments can be useful to lower the dead zone the stat has to pay, lower resource usage, lower work force needed. But at the same time keep the it low enough that it does not create a large divide between socio-economic groups, and forcing people out of the workforce because of illness or injuries.
