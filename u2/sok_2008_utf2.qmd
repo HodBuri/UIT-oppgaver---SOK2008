@@ -230,7 +230,7 @@ Bruk økonomisk teori og grafisk analyse til å gi intuisjon til begge disse på
 
 **Answer:**
 
-*Graph 1 - Market controlled, Graph 2 - Minimum Wage*
+*Graph 1 - Market controlled, Graph 2 - Minimum Wage* \[source: presentation F.3.1_minstelønn.pdf, slide 23 \]
 
 ```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.5, fig.height=1, fig.width=8}
 #Add actual graphs if I can be botherd
@@ -268,7 +268,7 @@ Sammenhengen mellom nivået på minstelønn og arbeidsledighetsraten er en korre
 
 **Answer:**
 
-*Graph 3 - Syselsetting vs avarage brutto income (in percent)*
+*Graph 3 - Syselsetting vs avarage brutto income (in percent)* \[source : eurostat\]
 
 ```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.5, fig.height=1, fig.width=8}
 
@@ -285,9 +285,9 @@ OECD har informasjon om organisasjonsgraden i fagforeninger (union density) og a
 
 Bruk data for innenlandsfødte (BIRTH = NB) og utenlandsfødte (BIRTH = FB) til å lage to grafer som viser sammenhengen mellom organisasjonsgraden i fagforeninger og nivået på arbeidsledigheten i ulike land for de to gruppene. Diskuter dine empiriske observasjoner ut fra økonomisk teori om forhandling mellom arbeidsmarkedets parter og medlemsbasens sammensetning.
 
-*Graph 4 - degree of unionization vs unemployment rates (Domesticly born)*
+*Graph 4 - degree of unionization vs unemployment rates (Domesticly born)* \[source : OECD\]
 
-*Graph 5 - degree of unionization vs unemployment rates (Foreign born)*
+*Graph 5 - degree of unionization vs unemployment rates (Foreign born)* \[source : OECD\]
 
 ```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.7, fig.height=1, fig.width=8}
 
