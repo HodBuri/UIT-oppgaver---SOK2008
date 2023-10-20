@@ -1,0 +1,325 @@
+---
+title: "sok_2008_h23_utf2"
+format: html
+editor: visual
+---
+
+```{r,message=FALSE, warning=FALSE, echo = FALSE, warning = FALSE, message = FALSE}
+# Import of libs
+rm(list = ls())
+library(tidyverse)
+library(httr)
+library(rjstat)
+library(lubridate)
+library(eurostat)
+library(econocharts)
+library(OECD)
+library(gridExtra)
+library(grid)
+
+
+# Custom Theme
+hod_theme_colours <- c("#ffa822","#1ac0c6","#ff6150","#30B66A","#B06AFF","#FF21E1")
+
+hod_theme <- function(alter_x_axis_colour = FALSE,
+                      ledgend_pos = "right",
+                      blank_axis = FALSE) {
+  
+  colour_text <- "#b8aba7"
+  colour_text_light <- "#FFE9E3"
+  colour_box <- "#2b2b2b"
+  colour_lines <- "#827974"
+  colour_main <- "#E9D5DA"
+  colour_background <- "#2b2b2b"
+  colour_palette_standard <- hod_theme_colours
+  colour_text_x_axis <- colour_text
+  
+  if(alter_x_axis_colour){
+     colour_text_x_axis <- c(colour_text,colour_text_light)
+  }
+  
+  y_ele = element_text(colour = colour_text, face = "italic", family = "mono")
+  x_ele = element_text(colour = colour_text_x_axis, face = "italic", family = "mono")
+  
+  if(blank_axis){
+    y_ele = element_blank()
+    x_ele = element_blank()
+  }
+    
+  theme(
+    # Border and margin
+    plot.margin = margin(0.4, 0.6, 0.4, 0.4, "cm"),
+    panel.border = element_rect(colour = colour_box, fill = NA, linetype = 2),
+    
+    # background
+    panel.background = element_rect(fill = colour_background),
+    plot.background = element_rect(fill = colour_background),
+    strip.background = element_rect(fill = colour_background),
+    
+    rect = element_rect(fill = colour_background, colour = "white",
+                        size = 0.5, linetype = 1),
+    
+    # grid
+    panel.grid.major.x = element_line(colour = colour_lines, linetype = 5, size = 0.25),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y =  element_line(colour = colour_lines, linetype = 5, size = 0.25),
+    panel.grid.minor.y = element_blank(),
+    axis.ticks = element_line(colour = colour_text),
+    
+    # line
+    line = element_line(colour = colour_palette_standard),
+    
+    # text
+    text = element_text(colour = colour_text, face = "italic", family = "mono"),
+    plot.title = element_text(colour = colour_text_light, face = "bold", family = "mono"),
+    plot.subtitle = element_text(colour = colour_text, family = "mono", hjust = 0.01),
+    plot.caption = element_text(colour = colour_text, face = "italic", family = "mono"),
+    axis.text.y = y_ele,
+    axis.text.x = x_ele,
+    axis.title = element_text(colour = colour_text_light, family = "mono"),
+    plot.tag = element_text(colour = colour_text, face = "italic", family = "mono"),
+    legend.text = element_text(color = colour_text,face = "italic", family = "mono"),
+    legend.title = element_text(colour = colour_text, face = "italic", family = "mono"),
+    strip.text = element_text(colour = colour_text_light, face = "bold", family = "mono"),
+    
+    # legend
+    legend.position = ledgend_pos,
+    legend.key = element_rect(fill = colour_background)
+    
+  )
+}
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# Data sett - Eurostat
+df_eurostat_mw <- get_eurostat("earn_mw_avgr2") %>% 
+  filter(format(time, "%Y") == "2021",
+         indic_se == "MMW_MEAN_ME_PP",
+         nace_r2 == "B-S")
+
+df_eurostat_em <- get_eurostat("lfsi_emp_a") %>% 
+  filter(age=="Y20-64", 
+         format(time, "%Y") == "2021",
+         indic_em == "EMP_LFS",
+         unit == "PC_POP",
+         sex == "T")
+
+# Check data
+head(df_eurostat_mw)
+head(df_eurostat_em)
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# Combine the two datasets
+df_eu_com <- df_eurostat_mw %>%
+  inner_join(df_eurostat_em, by = c("time", "geo"))
+
+# Check the combined data
+head(df_eu_com)
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.5, fig.height=1, fig.width=8}
+opg1 <- df_eu_com %>%
+  ggplot(aes(x = values.x ,y = values.y))+
+  geom_point(color=hod_theme_colours[1])+ # ta vekk "original-punkt"
+  geom_text(aes(label=geo),size=3,color="white",hjust=1.3)+ # label = geo fC8rer til at landsnavn blir brukt isteden for punkt
+  labs(x ="prosent av gjennomsnittlig bruttoinntekt", 
+       y = "sysselsetting")+
+  hod_theme()+
+  geom_smooth(method=lm, se=FALSE,color=hod_theme_colours[1]) + # Korrelasjonslinje
+  geom_text(aes(x = max(values.x), y = max(values.y), #Plassering av korrelasjons-koeffisient 
+                label = paste("Korrelasjon:", round(cor(values.x, values.y), 2))),
+            hjust = 5.7, vjust = 1, size = 4, color = "white")
+
+opg1
+
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+df_unem <- get_dataset("MIG_NUP_RATES_GENDER") %>% 
+  filter(RATE == "N_RATE",
+         GENDER == "TOT",
+         Time == "2018")
+  
+
+
+df_un <- get_dataset("TUD") %>% 
+  filter(MEAS == "PCT",
+         Time == "2018") %>%
+  rename("COUNTRY" = "LOCATION")
+
+# Check data
+head(df_unem)
+head(df_un)
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# Combine the two datasets
+df_oecd_com <- df_unem %>%
+  inner_join(df_un, by = c("COUNTRY")) %>%
+  mutate(ObsValue.x = as.numeric((ObsValue.x)),
+         ObsValue.y = as.numeric((ObsValue.y)))
+
+# Check the combined data
+head(df_oecd_com)
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.5, fig.height=1, fig.width=8}
+opg2_fb <- df_oecd_com %>%
+  filter(BIRTH == "FB")  %>%
+  ggplot(aes(x = ObsValue.x ,y = ObsValue.y))+
+  geom_point(color=hod_theme_colours[1])+ # ta vekk "original-punkt"
+  geom_text(aes(label=COUNTRY),size=3,color="white",hjust=1.3)+ # label = geo fC8rer til at landsnavn blir brukt isteden for punkt
+  labs(x ="arbeidsledighetsrate", 
+       y = "organisasjonsgrad")+
+  hod_theme()+
+  geom_smooth(method=lm, se=FALSE,color=hod_theme_colours[1]) + # Korrelasjonslinje
+  geom_text(aes(x = max(ObsValue.x), y = max(ObsValue.y),
+                label = "Foreign "),
+                hjust = 12.5, 
+                vjust = 1, 
+                size = 4, 
+                color = "white")+
+  geom_text(aes(x = max(ObsValue.x), y = max(ObsValue.y),
+                label = paste("Korrelasjon:", 
+                              round(cor(ObsValue.x, ObsValue.y), 2))),
+                hjust = 6, 
+                vjust = 3, 
+                size = 4, 
+                color = "white")
+
+opg2_fb
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.5, fig.height=1, fig.width=8}
+opg2_nb <- df_oecd_com %>%
+  filter(BIRTH == "NB")  %>%
+  ggplot(aes(x = ObsValue.x ,y = ObsValue.y))+
+  geom_point(color=hod_theme_colours[1])+ # ta vekk "original-punkt"
+  geom_text(aes(label=COUNTRY),size=3,color="white",hjust=1.3)+ # label = geo fC8rer til at landsnavn blir brukt isteden for punkt
+  labs(x ="arbeidsledighetsrate", 
+       y = "organisasjonsgrad")+
+  hod_theme()+
+  geom_smooth(method=lm, se=FALSE,color=hod_theme_colours[1]) + # Korrelasjonslinje
+  geom_text(aes(x = max(ObsValue.x), y = max(ObsValue.y),
+                label = "Domestic"),
+                hjust = 10.5, 
+                vjust = 1, 
+                size = 4, 
+                color = "white")+
+  geom_text(aes(x = max(ObsValue.x), y = max(ObsValue.y),
+                label = paste("Korrelasjon:", 
+                              round(cor(ObsValue.x, ObsValue.y), 2))),
+                hjust = 6, 
+                vjust = 3, 
+                size = 4, 
+                color = "white")
+
+opg2_nb
+```
+
+# Utfordring 2.1 - Minstelønn
+
+**Q: 2.1.1)**
+
+Bruk økonomisk teori og grafisk analyse til å gi intuisjon til begge disse påstandene:
+
+«Minstelønninger fører til økt fattigdom».
+
+«Minstelønninger fører til mindre fattigdom».
+
+**Answer:**
+
+*Graph 1 - Market controlled, Graph 2 - Minimum Wage*
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.5, fig.height=1, fig.width=8}
+#Add actual graphs if I can be botherd
+# None Minimum
+# Minimum
+# Monopsoni
+# Elasity
+# NoElasity
+```
+
+![](images/Screenshot%202023-10-19%20202114.png)
+
+Whether minimum wage will create poverty, or lift people up is dependent on a few things:
+
+What type of market is it, is it a competitive market or is it a monopsoni?\
+What are people currently getting payed, and what are people expected to have to get an above market wage. And lastly there is also the question of the elasticity of the current market.
+
+As one will always expect to exchange amount of labor for a change in wage, and in a perfectly competitive labor market, employers pay the market wage, which is determined by the intersection of the supply and demand for labor. Imposing a minimum wage above this equilibrium can potentially lead to a surplus of labor (unemployment), as employers may be less willing to hire at the higher wage.
+
+While a monopsonistic labor market, a single or few employers dominate and dictate the wage, often paying workers less than their marginal productivity. Introducing a minimum wage in such a market could increase wages without necessarily leading to unemployment, especially if the set wage equall to market equilibrium.
+
+So basically if current wage rate is already close to or above the proposed minimum wage, then the introduction of a minimum wage might have little to no impact on employment or poverty, for those with the skilled to keep there jobs. While the once that lack the skills, will fall into poverty from unemployment.\
+\
+Elasticity will also affect the market, but whats said stay true regardless. The elasticity will instead how large percentage will be affected, and how great the wage increase is. For inelastic a minimum wage will have less effect, and for an elastic could lead to a significant change.
+
+------------------------------------------------------------------------
+
+**Q: 2.1.2)**
+
+Eurostat har data på minstelønninger i prosent av gjennomsnittlig bruttoinntekt (earn_mw_avgr2) og sysselsetting (lfsi_emp_a). Hent ut data for sysselsetting i befolkningen i alderen 20 -64, og minstelønn som andel av gjennomsnittlig inntekt for året 2021. Lag en graf som illustrerer sammenhengen. Dersom du bruker ggplot i Rstudio, kan du bruke kommandoen: «geom_smooth(method=lm, se=FALSE)» til å få fram en korrelasjonslinje.
+
+Hvilken av påstandene i Utfordring 2.1.1 ser den observerte sammenhengen ut å gi støtte til?
+
+Sammenhengen mellom nivået på minstelønn og arbeidsledighetsraten er en korrelasjon. Diskuter årsaker til at vi ikke kan trekke konklusjonen at denne korrelasjonen indikerer et kausalt samband, og beskriv en metode som kan hjelpe til å identifisere kausale effekter.
+
+**Answer:**
+
+*Graph 3 - Syselsetting vs avarage brutto income (in percent)*
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.5, fig.height=1, fig.width=8}
+
+opg1
+```
+
+Given that the correlation coefficient is $−0.38$, it means there's a moderate negative relationship between the two variables, and as we see it has a downward trend. This does line up with the idea from 2.1.1, that a minimum wage can lead to higher poverty. But this doesn't automatically imply a direct causal relationship. As we went over, there are situations where we would expect a positive growth as well. So to support these findings, we can do an Difference-in-Differences compares. By finding two similar countries, on with minimum wage, and one without, we can observe the parallel trends.
+
+# Utfordring 2.2 - Fagforeninger
+
+Bruk økonomisk teori og grafisk analyse til å gi intuisjon til påstanden «Sterke fagforeninger reduserer velferden».
+
+OECD har informasjon om organisasjonsgraden i fagforeninger (union density) og arbeidsledighetsraten i ulike land. Datasettet «TUD» i R-pakken oecd inneholder data på organisasjonsgrad (ObsValue = organisasjonsgrad). Datasettet «MIG_NUP_RATES_GENDER» inneholder informasjon om arbeidsledighet i ulike grupper (ObsValue = arbeidsledighetsrate). Bruk data for år 2018, og for begge kjønn (GENDER = TOT). Dersom du bruker ggplot i Rstudio, kan du bruke kommandoen: «geom_smooth(method=lm, se=FALSE)» til å få fram en korrelasjonslinje.
+
+Bruk data for innenlandsfødte (BIRTH = NB) og utenlandsfødte (BIRTH = FB) til å lage to grafer som viser sammenhengen mellom organisasjonsgraden i fagforeninger og nivået på arbeidsledigheten i ulike land for de to gruppene. Diskuter dine empiriske observasjoner ut fra økonomisk teori om forhandling mellom arbeidsmarkedets parter og medlemsbasens sammensetning.
+
+*Graph 4 - degree of unionization vs unemployment rates (Domesticly born)*
+
+*Graph 5 - degree of unionization vs unemployment rates (Foreign born)*
+
+```{r echo = FALSE, warning = FALSE, message = FALSE, fig.asp = 0.7, fig.height=1, fig.width=8}
+
+grid.arrange(opg2_nb,opg2_fb, nrow = 2,  top = textGrob("Domestic vs Foreign born individuals",gp=gpar(fontsize=14,font=3)))
+```
+
+Trade unions have a significant role in shaping labor market, particularly around wages and employment levels. In many ways they can have many of the same benefits and problems as minimum wage, as they to when negotiating wages will affect employment, espasaly when they are a "closed shop" union. Which there are put a lot of regulations and rules around them to control their "degree of unionization". So again they can be very beneficial in a monopsony situation.
+
+As we see here in graph 4 and 5, both domestic and foreign have a positive correlation. Tho there is a large difference in that number, domestic-born population have a moderate positive correlation of 0.38, indicating that as the degree of unionization increases, unemployment rates also rise. However, the correlation is much weaker for the foreign-born population at 0.07.\
+\
+This difference can come from a large pool of options, as foreign employment have already a few extra hurdles do get over from culture and qualifications to conections and language. There are also the "Insiders vs. Outsiders" problem, a potential challenge between "insiders" (those who are part of the union) and "outsiders" (those who aren't). Insiders, enjoying the protection and benefits of the union, might experience better work conditions and wages, sacrificing those on the outside. outsiders who might find it harder to secure employment or negotiate better terms, especially if employers anticipate higher costs or demands associated with hiring union members.\
+\
+But we are a bit in the same situation as minimum wage as I said, the closer we get to a union system that works as a monopsony the worse it seems to be. Which is a reason there are often a large amount of regulation around it, to keep the unionization low, but still high enough to help grow together.
+
+## How AI is used:
+
+2 types of AI is used to support creating this text:
+
+**ChatGPT-4 (Pre-promted)**
+
+ChatGPT is used for 4 things:
+
+1.  Breaking down the question in a easy to read format
+2.  Get feedback on my answer, to see if they answered the task
+3.  To create script based on notes to create a podcast around those notes
+4.  I was asked to use one language, so it is also used to translate the text from English to Norwegian (This will not be done for the github version)
+
+**Elevenlab**\
+This is used for me to help going over what I have written, as well for the podcast script.
+
+## Kildelist:
+
+Forelesningsnotater
+
+Seminar Oppgaver

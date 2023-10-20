@@ -1,12 +1,12 @@
 ---
-title: "[ditt kandidatnummer]sok_2008_h23_utf1"
-format: html
+title: "17_sok_2008_h23_utf1"
+format: pdf
 editor: visual
 ---
 
 ## Setup and Importing
 
-```{r,message=FALSE, warning=FALSE}
+```{r,message=FALSE, warning=FALSE, echo = FALSE, warning = FALSE, message = FALSE}
 rm(list = ls())
 library(tidyverse)
 library(httr)
@@ -89,7 +89,7 @@ hod_theme <- function(alter_x_axis_colour = FALSE,
 
 ### Data from SSB(04544) work hours
 
-```{r}
+```{r echo = FALSE, warning = FALSE, message = FALSE}
 # Data sett - work
 
 URL = c("https://data.ssb.no/api/v0/no/table/04544/")
@@ -138,7 +138,7 @@ df_raw <- response %>%
 
 ### permisjon data child
 
-```{r}
+```{r echo = FALSE, warning = FALSE, message = FALSE}
 # Data sett - child permisjon
 
 df_permisjon_data_raw = read.csv("https://raw.githubusercontent.com/uit-sok-2008-h23/uit-sok-2008-h23.github.io/main/assets/women.csv",header=TRUE, sep = ";" )
@@ -148,7 +148,7 @@ head(df_permisjon_data_raw)
 
 ### Eurostat data
 
-```{r}
+```{r echo = FALSE, warning = FALSE, message = FALSE}
 # Data sett - Eurostat
 df_eurostat <- get_eurostat("hlth_sha11_hf")
 
@@ -157,7 +157,7 @@ head(df_eurostat)
 
 ### eurostat Clean
 
-```{r}
+```{r echo = FALSE, warning = FALSE, message = FALSE}
 # Filter rows for the year 2019
 df_eurostat_2019 <- df_eurostat %>% 
   filter(year(date(time)) == 2019,
@@ -200,7 +200,7 @@ Statistisk Sentral Byrå (SSB) har data (tabell 04544) som viser gjennomsnittlig
 
 ### **Work Hours Over the Years**
 
-```{r fig.asp = 0.5, fig.height=1, fig.width=10}
+```{r fig.asp = 0.5, fig.height=1, fig.width=10, echo = FALSE, warning = FALSE, message = FALSE}
 # Graph - old taken from last year
 y_label = "Percent change"
 x_label = "Year (1996-2021)"
@@ -231,7 +231,7 @@ The line graph reveals distinct trends in average work hours for men and women b
 
 ### **Current Year vs. 1996 Data**
 
-```{r fig.asp = 0.5, fig.height=1, fig.width=8}
+```{r fig.asp = 0.5, fig.height=1, fig.width=8, echo = FALSE, warning = FALSE, message = FALSE}
 df_raw %>%
   filter(statistikkvariabel == "Faktisk arbeidstid (timer per uke)", 
          år %in% c(1996, 2022),
@@ -252,7 +252,7 @@ Comparing data from 2022 and 1996 highlights the enduring, yet narrowing, gender
 
 These trends could be created by multiple factors, ranging from labor market conditions to personal choices and cultural influences, contribute to these observed trends. The decline in men's work hours from 39.5 to 36.1 suggests shifts in either personal priorities, government policies, or both. Conversely, the modest increase in women's work hours might reflect their efforts to advance in their careers, possibly fueled by societal movements towards gender equality.
 
-These variations indicate that men and women value leisure and consumption differently, thereby maximizing their utility under different different constraints and preferences. \
+These variations indicate that men and women value leisure and consumption differently, thereby maximizing their utility under different different constraints and preferences.\
 \
 The Human Capital Theory proposes that investment in skills and education impacts such choices. Women's increasing work hours could be a result of greater investment in their human capital, which is also likely to place a higher value on their leisure time due to potentially higher salaries in skill-intensive jobs.
 
@@ -264,7 +264,7 @@ Furthermore, behavioral tendencies seen more when studing pshycology could play 
 
 Dette datasettet inneholder informasjon om generøsiteten av foreldrepermisjonsordninger og mødres yrkesdeltakelse i 24 OECD land i 2021. For å gjøre ulike lands rettigheter sammenlignbare presenteres permisjonsordningenes gunstighet ved hjelp av «full rate equivalent» (tot_full_rate = uker med 100% støtte), hvilket tilsvarer foreldrepermisjonens varighet i uker multiplisert med utbetalingssats i prosent av gjennomsnittlig inntekt. Bruk datasettet til å lage to diagrammer som viser sammenhengen mellom lengde på betalt foreldrepermisjon og yrkesdeltakelse blant kvinner. I det ene diagrammet skal du bruke data som beskriver sysselsetting blant kvinner med barn i alderen 0-2 år (fem_emp_rate_0_2), og det andre skal du bruke data på kvinner med barn i alderen 6-14 år (fem_emp_rate_6_14). Diskuter, basert på disse diagrammene og økonomisk teori, følgende påstand: «Gunstige permisjonsordninger ved fødsel sikrer høy yrkesdeltakelse blant kvinner på lang sikt».
 
-```{r fig.asp = 0.7, fig.height=1, fig.width=8}
+```{r fig.asp = 0.7, fig.height=1, fig.width=8, echo = FALSE, warning = FALSE, message = FALSE}
 df_permisjon_data_raw %>%
   ggplot(aes(x = tot_full_rate, y = fem_emp_rate_0_2)) +
   geom_point(aes(color = country), size = 3, alpha=0.8) +
@@ -279,7 +279,7 @@ df_permisjon_data_raw %>%
 
 The scatter plot of tot_full_rate against fem_emp_rate_0_2 reveals a nuanced landscape. Notably, Estonia, with the highest rate of parental leave, shows one of the lowest rates of female employment (around 27%). In contrast, the United States, lacking any formal paid parental leave, shows a female employment rate close to 60%. Countries with less than 50 days of parental leave generally have female employment rates ab
 
-```{r fig.asp = 0.7, fig.height=1, fig.width=8}
+```{r fig.asp = 0.7, fig.height=1, fig.width=8, echo = FALSE, warning = FALSE, message = FALSE}
 df_permisjon_data_raw %>%
   ggplot(aes(x = tot_full_rate, y = fem_emp_rate_6_14)) +
   geom_point(aes(color = country), size = 3, alpha=0.8) +
@@ -323,7 +323,7 @@ Promoting active labor force participation among women can mitigate these challe
 
 ## Utfordring 1.2
 
-```{r fig.asp = 0.7, fig.height=1, fig.width=8}
+```{r fig.asp = 0.7, fig.height=1, fig.width=8, echo = FALSE, warning = FALSE, message = FALSE}
 df_eurostat_2019_full_names %>%
   ggplot(aes(x = PC_CHE_HF3, y = PPS_HAB_HF1)) +
   geom_point(aes(color = country), size = 3, alpha=0.8) +
@@ -338,7 +338,7 @@ Empirical Observations:
 
 Here we can see a scatter graph on the relationship between out-of-pocket health care payments and per capita healthcare consumption per inhabitant. The data compellingly suggests that an increase in the proportion of out-of-pocket payments correlates with a decrease in per capita healthcare spending. For instance, Norway, with an out-of-pocket rate of around 15%, enjoys one of the highest levels of healthcare consumption per inhabitant. Contrast this with Bulgaria, where a much higher out-of-pocket rate of 37.8% coincides with the lowest healthcare consumption per inhabitant.
 
-```{r fig.asp = 0.6, fig.height=1, fig.width=8}
+```{r fig.asp = 0.6, fig.height=1, fig.width=8, echo = FALSE, warning = FALSE, message = FALSE}
 
 # Function to generate the supply and demand plot - rewriten(ds to healthCv1)
 plot_market <- function(initial_price, percent_change) {
